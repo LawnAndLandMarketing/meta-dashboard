@@ -332,18 +332,20 @@
         return `<div class="account-row ${a.health}${isIgnored ? ' ignored' : ''}" data-health="${a.health}" data-name="${a.name.toLowerCase()}" data-index="${i}" data-ignored="${isIgnored}" data-campaigntype="${cType}" onclick="openDetail(${i})">
           <div class="acct-name">${a.name}<small>${a.activeCampaigns > 0 ? a.activeCampaigns + ' active campaign' + (a.activeCampaigns !== 1 ? 's' : '') + ' · <span style="color:' + (cType === 'leads' ? 'var(--ll-lime)' : cType === 'awareness' ? '#60a5fa' : cType === 'mixed' ? '#a78bfa' : 'rgba(255,255,255,0.30)') + '">' + (cType === 'leads' ? '📋 Leads' : cType === 'awareness' ? '📣 Awareness' : cType === 'mixed' ? '🔀 Mixed' : cType) + '</span>' : 'No active campaigns'}</small></div>
           <div class="td"><span class="health-badge ${a.health}">${healthLabel[a.health] || a.health}</span></div>
-          <!-- Spend — always shown, value toggled by JS -->
+          <!-- Spend — value toggled by filter context -->
           <div class="td right mono hide-mobile cell-spend-today"
-            data-leads-val="${a.today ? fmt$(a.today.spend) : '—'}"
+            data-leads-val="${a.todayLeadsOnly ? fmt$(a.todayLeadsOnly.spend) : (a.today ? fmt$(a.today.spend) : '—')}"
             data-awareness-val="${a.todayAwareness ? fmt$(a.todayAwareness.spend) : '—'}"
+            data-all-val="${a.today ? fmt$(a.today.spend) : '—'}"
           >${showAwareness ? (a.todayAwareness ? fmt$(a.todayAwareness.spend) : '—') : (a.today ? fmt$(a.today.spend) : '—')}</div>
           <div class="td right mono hide-mobile cell-spend-mtd"
-            data-leads-val="${a.mtd ? fmt$(a.mtd.spend) : '—'}"
+            data-leads-val="${a.mtdLeadsOnly ? fmt$(a.mtdLeadsOnly.spend) : (a.mtd ? fmt$(a.mtd.spend) : '—')}"
             data-awareness-val="${a.mtdAwareness ? fmt$(a.mtdAwareness.spend) : '—'}"
+            data-all-val="${a.mtd ? fmt$(a.mtd.spend) : '—'}"
           >${showAwareness ? (a.mtdAwareness ? fmt$(a.mtdAwareness.spend) : '—') : (a.mtd ? fmt$(a.mtd.spend) : '—')}</div>
-          <!-- Leads metrics -->
-          <div class="td right mono hide-mobile cell-leads" style="${showAwareness ? 'display:none' : ''}">${a.today ? fmtN(a.today.leads) : '—'}</div>
-          <div class="td right mono hide-mobile cell-leads" style="${showAwareness ? 'display:none' : ''}">${(a.today?.cpl > 0) ? fmt$(a.today.cpl) : '—'}</div>
+          <!-- Leads metrics — use leads-only data for mixed accounts -->
+          <div class="td right mono hide-mobile cell-leads" style="${showAwareness ? 'display:none' : ''}">${cType === 'mixed' && a.todayLeadsOnly ? fmtN(a.todayLeadsOnly.leads) : (a.today ? fmtN(a.today.leads) : '—')}</div>
+          <div class="td right mono hide-mobile cell-leads" style="${showAwareness ? 'display:none' : ''}">${cType === 'mixed' && a.todayLeadsOnly?.cpl > 0 ? fmt$(a.todayLeadsOnly.cpl) : (a.today?.cpl > 0 ? fmt$(a.today.cpl) : '—')}</div>
           <div class="td right mono hide-mobile cell-leads" style="${showAwareness ? 'display:none' : ''}">${avg7dCpl > 0 ? fmt$(avg7dCpl) : '—'}</div>
           <!-- Awareness metrics -->
           <div class="td right mono hide-mobile cell-awareness" style="${showAwareness ? '' : 'display:none'}">${a.todayAwareness ? fmtN(a.todayAwareness.impressions) : '—'}</div>
@@ -442,11 +444,14 @@
         }
 
         // Swap spend cells to show type-appropriate spend
-        row.querySelectorAll('.cell-spend-today').forEach(c => {
-          c.textContent = showAwarnessView ? (c.dataset.awarenessVal || '—') : (c.dataset.leadsVal || '—');
-        });
-        row.querySelectorAll('.cell-spend-mtd').forEach(c => {
-          c.textContent = showAwarnessView ? (c.dataset.awarenessVal || '—') : (c.dataset.leadsVal || '—');
+        row.querySelectorAll('.cell-spend-today, .cell-spend-mtd').forEach(c => {
+          if (currentFilter === 'awareness') {
+            c.textContent = c.dataset.awarenessVal || '—';
+          } else if (currentFilter === 'leads') {
+            c.textContent = c.dataset.leadsVal || '—';
+          } else {
+            c.textContent = c.dataset.allVal || '—';
+          }
         });
       });
     }

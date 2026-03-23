@@ -268,10 +268,12 @@ export default async function handler(req, res) {
           lifetimeSpend: parseFloat(acct.amount_spent || 0) / 100,
           hasPaymentMethod: !!acct.funding_source_details?.id,
           campaignType,
-          // For leads view: use leads-only data on mixed accounts, otherwise account-level
-          today: isMixed ? (todayLeadsOnly || todayInsights) : todayInsights,
-          mtd: isMixed ? (mtdLeadsOnly || mtdInsights) : mtdInsights,
+          today: todayInsights,
+          mtd: mtdInsights,
           last7d: last7Insights,
+          // Type-specific spend for mixed accounts
+          todayLeadsOnly: isMixed ? todayLeadsOnly : null,
+          mtdLeadsOnly: isMixed ? mtdLeadsOnly : null,
           todayAwareness,
           mtdAwareness,
           activeCampaigns: campaigns.length,
