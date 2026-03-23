@@ -332,8 +332,15 @@
         return `<div class="account-row ${a.health}${isIgnored ? ' ignored' : ''}" data-health="${a.health}" data-name="${a.name.toLowerCase()}" data-index="${i}" data-ignored="${isIgnored}" data-campaigntype="${cType}" onclick="openDetail(${i})">
           <div class="acct-name">${a.name}<small>${a.activeCampaigns > 0 ? a.activeCampaigns + ' active campaign' + (a.activeCampaigns !== 1 ? 's' : '') + ' · <span style="color:' + (cType === 'leads' ? 'var(--ll-lime)' : cType === 'awareness' ? '#60a5fa' : cType === 'mixed' ? '#a78bfa' : 'rgba(255,255,255,0.30)') + '">' + (cType === 'leads' ? '📋 Leads' : cType === 'awareness' ? '📣 Awareness' : cType === 'mixed' ? '🔀 Mixed' : cType) + '</span>' : 'No active campaigns'}</small></div>
           <div class="td"><span class="health-badge ${a.health}">${healthLabel[a.health] || a.health}</span></div>
-          <div class="td right mono hide-mobile">${a.today ? fmt$(a.today.spend) : '—'}</div>
-          <div class="td right mono hide-mobile">${a.mtd ? fmt$(a.mtd.spend) : '—'}</div>
+          <!-- Spend — always shown, value toggled by JS -->
+          <div class="td right mono hide-mobile cell-spend-today"
+            data-leads-val="${a.today ? fmt$(a.today.spend) : '—'}"
+            data-awareness-val="${a.todayAwareness ? fmt$(a.todayAwareness.spend) : '—'}"
+          >${showAwareness ? (a.todayAwareness ? fmt$(a.todayAwareness.spend) : '—') : (a.today ? fmt$(a.today.spend) : '—')}</div>
+          <div class="td right mono hide-mobile cell-spend-mtd"
+            data-leads-val="${a.mtd ? fmt$(a.mtd.spend) : '—'}"
+            data-awareness-val="${a.mtdAwareness ? fmt$(a.mtdAwareness.spend) : '—'}"
+          >${showAwareness ? (a.mtdAwareness ? fmt$(a.mtdAwareness.spend) : '—') : (a.mtd ? fmt$(a.mtd.spend) : '—')}</div>
           <!-- Leads metrics -->
           <div class="td right mono hide-mobile cell-leads" style="${showAwareness ? 'display:none' : ''}">${a.today ? fmtN(a.today.leads) : '—'}</div>
           <div class="td right mono hide-mobile cell-leads" style="${showAwareness ? 'display:none' : ''}">${(a.today?.cpl > 0) ? fmt$(a.today.cpl) : '—'}</div>
@@ -419,19 +426,28 @@
         const matchesSearch = !search || row.dataset.name.includes(search);
         row.classList.toggle('hidden', !(matchesFilter && matchesSearch));
 
-        // Swap metric cells based on filter context
+        // Determine if this row should show awareness metrics
+        const rowType = row.dataset.campaigntype;
+        const showAwarnessView = currentFilter === 'awareness' || rowType === 'awareness';
+
+        // Swap metric cells
         const awareCells = row.querySelectorAll('.cell-awareness');
         const leadsCells = row.querySelectorAll('.cell-leads');
-        if (currentFilter === 'awareness') {
-          awareCells.forEach(c => c.style.display = '');
-          leadsCells.forEach(c => c.style.display = 'none');
-        } else if (row.dataset.campaigntype === 'awareness') {
+        if (showAwarnessView) {
           awareCells.forEach(c => c.style.display = '');
           leadsCells.forEach(c => c.style.display = 'none');
         } else {
           awareCells.forEach(c => c.style.display = 'none');
           leadsCells.forEach(c => c.style.display = '');
         }
+
+        // Swap spend cells to show type-appropriate spend
+        row.querySelectorAll('.cell-spend-today').forEach(c => {
+          c.textContent = showAwarnessView ? (c.dataset.awarenessVal || '—') : (c.dataset.leadsVal || '—');
+        });
+        row.querySelectorAll('.cell-spend-mtd').forEach(c => {
+          c.textContent = showAwarnessView ? (c.dataset.awarenessVal || '—') : (c.dataset.leadsVal || '—');
+        });
       });
     }
 
