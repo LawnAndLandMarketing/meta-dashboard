@@ -266,6 +266,7 @@
         allAccounts = data.accounts || [];
         renderSummary();
         renderAccounts(allAccounts);
+        filterAccounts();
 
         // Alert banner
         const visibleAccounts = allAccounts.filter(a => !ignoredIds.has(a.id));
