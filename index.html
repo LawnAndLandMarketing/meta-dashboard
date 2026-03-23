@@ -234,7 +234,8 @@
         // If currently showing this account and filter isn't 'ignored', stay in current view
       }
       saveIgnored();
-      renderAccounts(allAccounts); // re-render with updated ignore state
+      renderAccounts(allAccounts);
+      filterAccounts();
     }
 
     function fmt$(n) {
