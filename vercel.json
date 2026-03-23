@@ -9,5 +9,15 @@
         { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/health-check",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/health-check",
+      "schedule": "0 22 * * *"
+    }
   ]
 }
