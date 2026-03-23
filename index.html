@@ -404,7 +404,14 @@
         } else if (isHealthFilter) {
           matchesFilter = !isIgnored && row.dataset.health === currentFilter;
         } else if (isCampaignFilter) {
-          matchesFilter = !isIgnored && row.dataset.campaigntype === currentFilter;
+          const ct = row.dataset.campaigntype;
+          if (currentFilter === 'leads') {
+            matchesFilter = !isIgnored && (ct === 'leads' || ct === 'mixed');
+          } else if (currentFilter === 'awareness') {
+            matchesFilter = !isIgnored && (ct === 'awareness' || ct === 'mixed');
+          } else {
+            matchesFilter = !isIgnored && ct === currentFilter;
+          }
         } else {
           matchesFilter = !isIgnored;
         }
