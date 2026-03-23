@@ -12,12 +12,12 @@
   ],
   "crons": [
     {
-      "path": "/api/health-check",
-      "schedule": "0 12 * * *"
+      "path": "/api/kai-review",
+      "schedule": "0 12 * * 1-5"
     },
     {
-      "path": "/api/health-check",
-      "schedule": "0 22 * * *"
+      "path": "/api/kai-review",
+      "schedule": "0 17 * * 1-5"
     }
   ]
 }

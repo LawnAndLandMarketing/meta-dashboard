@@ -209,6 +209,38 @@
 
   </div><!-- /page -->
 
+  <!-- KAI REVIEW PANEL -->
+  <div id="review-panel" style="display:none; position:fixed; bottom:24px; right:24px; width:380px; max-height:70vh; z-index:50;">
+    <div style="background:#080f08; border:1px solid rgba(20,83,45,0.50); border-radius:16px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.06);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--ll-lime);box-shadow:0 0 8px var(--ll-lime);animation:pulse-dot 2s ease-in-out infinite;"></div>
+          <span style="font-family:'Rethink Sans',sans-serif;font-weight:800;font-style:italic;font-size:1rem;color:#fff;">Kai's Review</span>
+        </div>
+        <button onclick="document.getElementById('review-panel').style.display='none'" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:6px;padding:4px 10px;color:var(--text-muted);font-size:0.75rem;cursor:pointer;font-family:'Inter',sans-serif;">✕</button>
+      </div>
+      <div id="review-content" style="overflow-y:auto;max-height:calc(70vh - 120px);padding:20px;">
+        <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:0.85rem;">Loading review…</div>
+      </div>
+      <div style="padding:12px 20px;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center;">
+        <span id="review-timestamp" style="font-size:0.7rem;color:var(--text-muted);">—</span>
+        <span style="font-size:0.7rem;color:rgba(255,255,255,0.20);">Runs 8 AM + 1 PM ET weekdays</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- KAI REVIEW TOGGLE BUTTON -->
+  <button onclick="toggleReviewPanel()" id="review-toggle-btn" style="position:fixed;bottom:24px;right:24px;display:flex;align-items:center;gap:8px;padding:12px 18px;background:#080f08;border:1px solid rgba(172,231,29,0.35);border-radius:999px;color:var(--ll-lime);font-family:'Inter',sans-serif;font-size:0.82rem;font-weight:600;cursor:pointer;box-shadow:0 8px 32px rgba(0,0,0,0.5);z-index:49;transition:all 0.15s;" onmouseover="this.style.background='rgba(172,231,29,0.10)'" onmouseout="this.style.background='#080f08'">
+    <span id="review-btn-dot" style="width:8px;height:8px;border-radius:50%;background:var(--ll-lime);box-shadow:0 0 6px var(--ll-lime);"></span>
+    Kai's Review
+    <span id="review-alert-badge" style="display:none;background:#ef4444;color:#fff;border-radius:999px;padding:1px 7px;font-size:0.68rem;font-weight:700;margin-left:2px;"></span>
+  </button>
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity:1; box-shadow:0 0 8px var(--ll-lime); }
+    50% { opacity:0.4; box-shadow:0 0 2px var(--ll-lime); }
+  }
+
   <!-- DETAIL PANEL -->
   <div class="detail-overlay" id="detail-overlay" onclick="closeDetail(event)">
     <div class="detail-panel" id="detail-panel">
@@ -556,6 +588,142 @@
 
     // Show ignored filter button if any accounts are ignored on load
     saveIgnored();
+
+    // ─── KAI REVIEW PANEL ────────────────────────────────────────────────────
+    let reviewPanelOpen = false;
+
+    function toggleReviewPanel() {
+      reviewPanelOpen = !reviewPanelOpen;
+      const panel = document.getElementById('review-panel');
+      const btn = document.getElementById('review-toggle-btn');
+      panel.style.display = reviewPanelOpen ? 'block' : 'none';
+      btn.style.display = reviewPanelOpen ? 'none' : 'flex';
+      if (reviewPanelOpen) loadReview();
+    }
+
+    async function loadReview() {
+      try {
+        const res = await fetch('/api/kai-review');
+        const data = await res.json();
+        const reviews = data.reviews || [];
+        const latest = reviews[0];
+
+        if (!latest) {
+          document.getElementById('review-content').innerHTML = `
+            <div style="text-align:center;padding:24px;">
+              <div style="font-size:2rem;margin-bottom:12px;">⏰</div>
+              <p style="color:var(--text-secondary);font-size:0.85rem;line-height:1.6;">No reviews yet. First review runs at 8 AM ET on the next weekday.</p>
+            </div>`;
+          return;
+        }
+
+        const fmt$ = n => n ? '$' + parseFloat(n).toLocaleString('en-US', {maximumFractionDigits:0}) : '—';
+        const healthColor = latest.stats.critical > 0 ? '#ef4444' : latest.stats.warnings > 0 ? '#eab308' : '#22c55e';
+        const healthIcon = latest.stats.critical > 0 ? '🔴' : latest.stats.warnings > 0 ? '⚠️' : '✅';
+
+        let html = `
+          <div style="background:rgba(172,231,29,0.06);border:1px solid rgba(172,231,29,0.18);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+            <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--ll-lime);margin-bottom:6px;">${healthIcon} Kai's Summary</div>
+            <p style="font-size:0.88rem;color:rgba(255,255,255,0.85);line-height:1.55;">${latest.summary}</p>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+            <div style="background:var(--bg-surface);border:1px solid var(--border-card);border-radius:8px;padding:12px;text-align:center;">
+              <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:4px;">Spend Today</div>
+              <div style="font-family:'Rethink Sans',sans-serif;font-weight:800;font-style:italic;font-size:1.3rem;color:var(--ll-lime);">${fmt$(latest.stats.spendToday)}</div>
+            </div>
+            <div style="background:var(--bg-surface);border:1px solid var(--border-card);border-radius:8px;padding:12px;text-align:center;">
+              <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:4px;">Leads Today</div>
+              <div style="font-family:'Rethink Sans',sans-serif;font-weight:800;font-style:italic;font-size:1.3rem;color:#fff;">${latest.stats.leadsToday || 0}</div>
+            </div>
+          </div>`;
+
+        if (latest.critical?.length > 0) {
+          html += `<div style="margin-bottom:16px;"><div style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#f87171;margin-bottom:10px;">🔴 Critical (${latest.critical.length})</div>`;
+          for (const a of latest.critical) {
+            html += `<div style="background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.20);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+              <div style="font-size:0.82rem;font-weight:600;color:#fff;margin-bottom:6px;">${a.name}</div>
+              ${a.flags.map(f => `<div style="font-size:0.75rem;color:#f87171;padding:2px 0;">• ${f.msg}</div>`).join('')}
+            </div>`;
+          }
+          html += '</div>';
+        }
+
+        if (latest.warnings?.length > 0) {
+          html += `<div style="margin-bottom:16px;"><div style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:10px;">⚠️ Warnings (${latest.warnings.length})</div>`;
+          for (const a of latest.warnings) {
+            html += `<div style="background:rgba(234,179,8,0.07);border:1px solid rgba(234,179,8,0.20);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+              <div style="font-size:0.82rem;font-weight:600;color:#fff;margin-bottom:6px;">${a.name}</div>
+              ${a.flags.map(f => `<div style="font-size:0.75rem;color:#fbbf24;padding:2px 0;">• ${f.msg}</div>`).join('')}
+            </div>`;
+          }
+          html += '</div>';
+        }
+
+        if (latest.topPerformers?.length > 0) {
+          html += `<div style="margin-bottom:16px;"><div style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--ll-lime);margin-bottom:10px;">🏆 Top CPL Today</div>`;
+          for (const a of latest.topPerformers) {
+            html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+              <span style="font-size:0.82rem;color:rgba(255,255,255,0.75);">${a.name}</span>
+              <span style="font-size:0.82rem;font-weight:600;color:var(--ll-lime);">${fmt$(a.cpl)} / lead</span>
+            </div>`;
+          }
+          html += '</div>';
+        }
+
+        // Previous reviews
+        if (reviews.length > 1) {
+          html += `<div><div style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Previous Reviews</div>`;
+          for (const r of reviews.slice(1, 5)) {
+            const icon = r.stats.critical > 0 ? '🔴' : r.stats.warnings > 0 ? '⚠️' : '✅';
+            html += `<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+              <span style="font-size:0.9rem;flex-shrink:0">${icon}</span>
+              <div>
+                <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:2px;">${r.session}</div>
+                <div style="font-size:0.80rem;color:rgba(255,255,255,0.60);line-height:1.4;">${r.summary}</div>
+              </div>
+            </div>`;
+          }
+          html += '</div>';
+        }
+
+        document.getElementById('review-content').innerHTML = html;
+
+        // Update timestamp
+        const ts = new Date(latest.reviewedAt);
+        document.getElementById('review-timestamp').textContent = 'Last reviewed ' + ts.toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true, timeZone:'America/New_York' }) + ' ET';
+
+        // Alert badge on button
+        const badge = document.getElementById('review-alert-badge');
+        const issues = (latest.stats.critical || 0) + (latest.stats.warnings || 0);
+        if (issues > 0) {
+          badge.textContent = issues;
+          badge.style.display = 'inline';
+        }
+      } catch (err) {
+        document.getElementById('review-content').innerHTML = `<p style="color:#f87171;font-size:0.85rem;padding:16px;">${err.message}</p>`;
+      }
+    }
+
+    // Load review badge count on page load (non-blocking)
+    setTimeout(async () => {
+      try {
+        const res = await fetch('/api/kai-review');
+        const data = await res.json();
+        const latest = data.reviews?.[0];
+        if (latest) {
+          const issues = (latest.stats.critical || 0) + (latest.stats.warnings || 0);
+          if (issues > 0) {
+            const badge = document.getElementById('review-alert-badge');
+            badge.textContent = issues;
+            badge.style.display = 'inline';
+          }
+          // Show timestamp on btn
+          const ts = new Date(latest.reviewedAt);
+          document.getElementById('review-toggle-btn').title = 'Last reviewed: ' + ts.toLocaleString('en-US', { timeZone: 'America/New_York', hour:'numeric', minute:'2-digit', hour12:true });
+        }
+      } catch {}
+    }, 2000);
 
     // Auto-refresh every 5 min
     loadData();
