@@ -178,19 +178,23 @@
       <button class="filter-btn" data-filter="healthy" onclick="setFilter('healthy', this)">✅ Healthy</button>
       <button class="filter-btn" data-filter="inactive" onclick="setFilter('inactive', this)">Inactive</button>
       <button class="filter-btn" data-filter="ignored" onclick="setFilter('ignored', this)" id="ignored-filter-btn" style="display:none">🙈 Ignored</button>
+      <div style="width:1px;height:20px;background:rgba(255,255,255,0.08);margin:0 4px;"></div>
+      <button class="filter-btn" data-filter="leads" onclick="setFilter('leads', this)">📋 Leads</button>
+      <button class="filter-btn" data-filter="awareness" onclick="setFilter('awareness', this)">📣 Awareness</button>
+      <button class="filter-btn" data-filter="mixed" onclick="setFilter('mixed', this)">🔀 Mixed</button>
       <input type="search" class="search-input" placeholder="Search accounts…" id="search-input" oninput="filterAccounts()" />
     </div>
 
     <!-- TABLE HEADER -->
-    <div class="table-header">
+    <div class="table-header" id="table-header">
       <div class="th">Account</div>
       <div class="th">Health</div>
-      <div class="th right hide-mobile">Spend Today</div>
-      <div class="th right hide-mobile">Spend MTD</div>
-      <div class="th right hide-mobile">Leads Today</div>
-      <div class="th right hide-mobile">CPL Today</div>
-      <div class="th right hide-mobile">7d CPL</div>
-      <div class="th right hide-mobile">Campaigns</div>
+      <div class="th right hide-mobile" id="col-h-3">Spend Today</div>
+      <div class="th right hide-mobile" id="col-h-4">Spend MTD</div>
+      <div class="th right hide-mobile" id="col-h-5">Leads Today</div>
+      <div class="th right hide-mobile" id="col-h-6">CPL Today</div>
+      <div class="th right hide-mobile" id="col-h-7">7d CPL</div>
+      <div class="th right hide-mobile" id="col-h-8">Campaigns</div>
       <div class="th right">Issues</div>
       <div class="th"></div>
     </div>
@@ -323,14 +327,21 @@
         const healthLabel = { healthy: '✅ Healthy', warning: '⚠️ Warning', critical: '🔴 Critical', inactive: '— Inactive' };
 
         const isIgnored = ignoredIds.has(a.id);
-        return `<div class="account-row ${a.health}${isIgnored ? ' ignored' : ''}" data-health="${a.health}" data-name="${a.name.toLowerCase()}" data-index="${i}" data-ignored="${isIgnored}" onclick="openDetail(${i})">
-          <div class="acct-name">${a.name}<small>${a.activeCampaigns > 0 ? a.activeCampaigns + ' active campaign' + (a.activeCampaigns !== 1 ? 's' : '') : 'No active campaigns'}</small></div>
+        const cType = a.campaignType || 'unknown';
+        const showAwareness = cType === 'awareness';
+        return `<div class="account-row ${a.health}${isIgnored ? ' ignored' : ''}" data-health="${a.health}" data-name="${a.name.toLowerCase()}" data-index="${i}" data-ignored="${isIgnored}" data-campaigntype="${cType}" onclick="openDetail(${i})">
+          <div class="acct-name">${a.name}<small>${a.activeCampaigns > 0 ? a.activeCampaigns + ' active campaign' + (a.activeCampaigns !== 1 ? 's' : '') + ' · <span style="color:' + (cType === 'leads' ? 'var(--ll-lime)' : cType === 'awareness' ? '#60a5fa' : cType === 'mixed' ? '#a78bfa' : 'rgba(255,255,255,0.30)') + '">' + (cType === 'leads' ? '📋 Leads' : cType === 'awareness' ? '📣 Awareness' : cType === 'mixed' ? '🔀 Mixed' : cType) + '</span>' : 'No active campaigns'}</small></div>
           <div class="td"><span class="health-badge ${a.health}">${healthLabel[a.health] || a.health}</span></div>
           <div class="td right mono hide-mobile">${a.today ? fmt$(a.today.spend) : '—'}</div>
           <div class="td right mono hide-mobile">${a.mtd ? fmt$(a.mtd.spend) : '—'}</div>
-          <div class="td right mono hide-mobile">${a.today ? fmtN(a.today.leads) : '—'}</div>
-          <div class="td right mono hide-mobile">${(a.today?.cpl > 0) ? fmt$(a.today.cpl) : '—'}</div>
-          <div class="td right mono hide-mobile">${avg7dCpl > 0 ? fmt$(avg7dCpl) : '—'}</div>
+          <!-- Leads metrics -->
+          <div class="td right mono hide-mobile cell-leads" style="${showAwareness ? 'display:none' : ''}">${a.today ? fmtN(a.today.leads) : '—'}</div>
+          <div class="td right mono hide-mobile cell-leads" style="${showAwareness ? 'display:none' : ''}">${(a.today?.cpl > 0) ? fmt$(a.today.cpl) : '—'}</div>
+          <div class="td right mono hide-mobile cell-leads" style="${showAwareness ? 'display:none' : ''}">${avg7dCpl > 0 ? fmt$(avg7dCpl) : '—'}</div>
+          <!-- Awareness metrics -->
+          <div class="td right mono hide-mobile cell-awareness" style="${showAwareness ? '' : 'display:none'}">${a.todayAwareness ? fmtN(a.todayAwareness.impressions) : '—'}</div>
+          <div class="td right mono hide-mobile cell-awareness" style="${showAwareness ? '' : 'display:none'}">${a.todayAwareness ? fmtN(a.todayAwareness.reach) : '—'}</div>
+          <div class="td right mono hide-mobile cell-awareness" style="${showAwareness ? '' : 'display:none'}">${a.todayAwareness?.cpm > 0 ? fmt$(a.todayAwareness.cpm) : '—'}</div>
           <div class="td right mono hide-mobile">${a.activeCampaigns || 0}</div>
           <div class="td right"><div class="flag-list">${flagsHtml || '<span class="flag-item" style="color:rgba(255,255,255,0.25);">—</span>'}</div></div>
           <div class="td" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;" onclick="event.stopPropagation()">
@@ -345,27 +356,75 @@
       }).join('');
     }
 
+    const HEALTH_FILTERS = new Set(['all', 'critical', 'warning', 'healthy', 'inactive', 'ignored']);
+    const CAMPAIGN_FILTERS = new Set(['leads', 'awareness', 'mixed']);
+
     function setFilter(filter, btn) {
       currentFilter = filter;
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+
+      // Update column headers based on filter context
+      updateColumnHeaders(filter);
       filterAccounts();
+    }
+
+    function updateColumnHeaders(filter) {
+      const isAwareness = filter === 'awareness';
+      if (isAwareness) {
+        document.getElementById('col-h-3').textContent = 'Spend Today';
+        document.getElementById('col-h-4').textContent = 'Spend MTD';
+        document.getElementById('col-h-5').textContent = 'Impressions';
+        document.getElementById('col-h-6').textContent = 'Reach';
+        document.getElementById('col-h-7').textContent = 'CPM';
+        document.getElementById('col-h-8').textContent = 'Campaigns';
+      } else {
+        document.getElementById('col-h-3').textContent = 'Spend Today';
+        document.getElementById('col-h-4').textContent = 'Spend MTD';
+        document.getElementById('col-h-5').textContent = 'Leads Today';
+        document.getElementById('col-h-6').textContent = 'CPL Today';
+        document.getElementById('col-h-7').textContent = '7d CPL';
+        document.getElementById('col-h-8').textContent = 'Campaigns';
+      }
     }
 
     function filterAccounts() {
       const search = document.getElementById('search-input').value.toLowerCase();
+      const isHealthFilter = HEALTH_FILTERS.has(currentFilter);
+      const isCampaignFilter = CAMPAIGN_FILTERS.has(currentFilter);
+
       document.querySelectorAll('.account-row').forEach(row => {
         const isIgnored = row.dataset.ignored === 'true';
         let matchesFilter;
+
         if (currentFilter === 'ignored') {
           matchesFilter = isIgnored;
         } else if (currentFilter === 'all') {
           matchesFilter = !isIgnored;
-        } else {
+        } else if (isHealthFilter) {
           matchesFilter = !isIgnored && row.dataset.health === currentFilter;
+        } else if (isCampaignFilter) {
+          matchesFilter = !isIgnored && row.dataset.campaigntype === currentFilter;
+        } else {
+          matchesFilter = !isIgnored;
         }
+
         const matchesSearch = !search || row.dataset.name.includes(search);
         row.classList.toggle('hidden', !(matchesFilter && matchesSearch));
+
+        // Swap metric cells based on filter context
+        const awareCells = row.querySelectorAll('.cell-awareness');
+        const leadsCells = row.querySelectorAll('.cell-leads');
+        if (currentFilter === 'awareness') {
+          awareCells.forEach(c => c.style.display = '');
+          leadsCells.forEach(c => c.style.display = 'none');
+        } else if (row.dataset.campaigntype === 'awareness') {
+          awareCells.forEach(c => c.style.display = '');
+          leadsCells.forEach(c => c.style.display = 'none');
+        } else {
+          awareCells.forEach(c => c.style.display = 'none');
+          leadsCells.forEach(c => c.style.display = '');
+        }
       });
     }
 
@@ -392,13 +451,29 @@
         </div>
 
         <div class="detail-section">
+          <div class="detail-section-label">Campaign Type</div>
+          <div style="margin-bottom:8px">
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:0.72rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:${a.campaignType === 'leads' ? 'rgba(172,231,29,0.12)' : a.campaignType === 'awareness' ? 'rgba(96,165,250,0.12)' : a.campaignType === 'mixed' ? 'rgba(167,139,250,0.12)' : 'rgba(255,255,255,0.06)'};color:${a.campaignType === 'leads' ? 'var(--ll-lime)' : a.campaignType === 'awareness' ? '#60a5fa' : a.campaignType === 'mixed' ? '#a78bfa' : 'rgba(255,255,255,0.40)'};border:1px solid ${a.campaignType === 'leads' ? 'rgba(172,231,29,0.25)' : a.campaignType === 'awareness' ? 'rgba(96,165,250,0.25)' : 'rgba(255,255,255,0.12)'}">
+              ${a.campaignType === 'leads' ? '📋 Leads Campaign' : a.campaignType === 'awareness' ? '📣 Awareness Campaign' : a.campaignType === 'mixed' ? '🔀 Mixed (Leads + Awareness)' : a.campaignType === 'other' ? '📊 Other' : '— No Active Campaigns'}
+            </span>
+          </div>
+        </div>
+
+        <div class="detail-section">
           <div class="detail-section-label">Today's Performance</div>
-          ${a.today ? `
-          <div class="detail-stat-row"><span class="detail-stat-label">Spend</span><span class="detail-stat-value">${fmt$(a.today.spend)}</span></div>
-          <div class="detail-stat-row"><span class="detail-stat-label">Leads</span><span class="detail-stat-value">${fmtN(a.today.leads)}</span></div>
-          <div class="detail-stat-row"><span class="detail-stat-label">CPL</span><span class="detail-stat-value">${a.today.cpl > 0 ? fmt$(a.today.cpl) : '—'}</span></div>
-          <div class="detail-stat-row"><span class="detail-stat-label">CTR</span><span class="detail-stat-value">${fmtPct(a.today.ctr)}</span></div>
-          <div class="detail-stat-row"><span class="detail-stat-label">CPM</span><span class="detail-stat-value">${fmt$(a.today.cpm)}</span></div>
+          ${a.today || a.todayAwareness ? `
+          <div class="detail-stat-row"><span class="detail-stat-label">Spend</span><span class="detail-stat-value">${fmt$(a.today?.spend || 0)}</span></div>
+          ${a.campaignType !== 'awareness' ? `
+          <div class="detail-stat-row"><span class="detail-stat-label">Leads</span><span class="detail-stat-value">${fmtN(a.today?.leads)}</span></div>
+          <div class="detail-stat-row"><span class="detail-stat-label">CPL</span><span class="detail-stat-value">${a.today?.cpl > 0 ? fmt$(a.today.cpl) : '—'}</span></div>
+          <div class="detail-stat-row"><span class="detail-stat-label">CTR</span><span class="detail-stat-value">${fmtPct(a.today?.ctr)}</span></div>
+          ` : ''}
+          ${a.campaignType !== 'leads' ? `
+          <div class="detail-stat-row"><span class="detail-stat-label">Impressions</span><span class="detail-stat-value">${fmtN(a.todayAwareness?.impressions)}</span></div>
+          <div class="detail-stat-row"><span class="detail-stat-label">Reach</span><span class="detail-stat-value">${fmtN(a.todayAwareness?.reach)}</span></div>
+          ${a.todayAwareness?.videoViews > 0 ? `<div class="detail-stat-row"><span class="detail-stat-label">Video Views</span><span class="detail-stat-value">${fmtN(a.todayAwareness?.videoViews)}</span></div>` : ''}
+          ` : ''}
+          <div class="detail-stat-row"><span class="detail-stat-label">CPM</span><span class="detail-stat-value">${fmt$(a.today?.cpm || a.todayAwareness?.cpm)}</span></div>
           ` : '<p style="font-size:0.85rem;color:rgba(255,255,255,0.35)">Account inactive — no data</p>'}
         </div>
 

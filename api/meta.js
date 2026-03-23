@@ -73,6 +73,43 @@ async function getActiveCampaigns(accountId) {
   }
 }
 
+function detectCampaignType(campaigns) {
+  if (!campaigns.length) return 'unknown';
+  const AWARENESS_OBJECTIVES = ['OUTCOME_AWARENESS', 'REACH', 'VIDEO_VIEWS', 'BRAND_AWARENESS', 'PAGE_LIKES'];
+  const LEADS_OBJECTIVES = ['OUTCOME_LEADS', 'LEAD_GENERATION', 'CONVERSIONS', 'OUTCOME_SALES'];
+  let hasLeads = false;
+  let hasAwareness = false;
+  for (const c of campaigns) {
+    if (LEADS_OBJECTIVES.includes(c.objective)) hasLeads = true;
+    if (AWARENESS_OBJECTIVES.includes(c.objective)) hasAwareness = true;
+  }
+  if (hasLeads && hasAwareness) return 'mixed';
+  if (hasLeads) return 'leads';
+  if (hasAwareness) return 'awareness';
+  return 'other';
+}
+
+async function getAwarenessInsights(accountId, datePreset = 'today') {
+  try {
+    const data = await fetchGraph(`${accountId}/insights`, {
+      fields: 'spend,impressions,reach,cpm,video_play_actions',
+      date_preset: datePreset,
+      level: 'account',
+    });
+    const d = data?.data?.[0] || {};
+    const videoViews = d.video_play_actions?.find(a => a.action_type === 'video_view')?.value || 0;
+    return {
+      spend: parseFloat(d.spend || 0),
+      impressions: parseInt(d.impressions || 0),
+      reach: parseInt(d.reach || 0),
+      cpm: parseFloat(d.cpm || 0),
+      videoViews: parseInt(videoViews),
+    };
+  } catch {
+    return { spend: 0, impressions: 0, reach: 0, cpm: 0, videoViews: 0 };
+  }
+}
+
 async function getPolicyIssues(accountId) {
   try {
     const data = await fetchGraph(`${accountId}/ads`, {
@@ -108,13 +145,17 @@ export default async function handler(req, res) {
       accounts.map(async (acct) => {
         const isActive = acct.account_status === 1;
 
-        const [todayInsights, mtdInsights, last7Insights, campaigns, policyIssues] = await Promise.all([
+        const [todayInsights, mtdInsights, last7Insights, todayAwareness, mtdAwareness, campaigns, policyIssues] = await Promise.all([
           isActive ? getAccountInsights(acct.id, 'today') : Promise.resolve(null),
           isActive ? getAccountInsights(acct.id, 'this_month') : Promise.resolve(null),
           isActive ? getAccountInsights(acct.id, 'last_7d') : Promise.resolve(null),
+          isActive ? getAwarenessInsights(acct.id, 'today') : Promise.resolve(null),
+          isActive ? getAwarenessInsights(acct.id, 'this_month') : Promise.resolve(null),
           isActive ? getActiveCampaigns(acct.id) : Promise.resolve([]),
           isActive ? getPolicyIssues(acct.id) : Promise.resolve([]),
         ]);
+
+        const campaignType = detectCampaignType(campaigns);
 
         // Compute health flags
         const flags = [];
@@ -163,9 +204,12 @@ export default async function handler(req, res) {
           currency: acct.currency || 'USD',
           lifetimeSpend: parseFloat(acct.amount_spent || 0) / 100,
           hasPaymentMethod: !!acct.funding_source_details?.id,
+          campaignType,
           today: todayInsights,
           mtd: mtdInsights,
           last7d: last7Insights,
+          todayAwareness,
+          mtdAwareness,
           activeCampaigns: campaigns.length,
           campaignNames: campaigns.map(c => c.name).slice(0, 3),
           policyIssues: policyIssues.length,
